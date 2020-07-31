@@ -3,7 +3,7 @@ import torch
 from torch import nn
 import pretrainedmodels
 import torch.nn.functional as F
-from utils.mish_activation import Mish
+from utils import Mish
 
 
 
@@ -22,14 +22,14 @@ PATH_MODEL = r'C:\Users\pka\kaggle\EfficientNet (Standard Training & Advprop)'
 #     break
 
 pre_train = {
-    'b0' : 'efficientnet-b0-355c32eb.pth',
-    'b1' : 'efficientnet-b1-f1951068.pth',
-    'b2' : 'efficientnet-b2-8bb594d6.pth',
-    'b3' : 'efficientnet-b3-5fb5a3c3.pth',
-    'b4' : 'efficientnet-b4-6ed6700e.pth',
-    'b5' : 'efficientnet-b5-b6417697.pth',
-    'b6' : 'efficientnet-b6-c76e70fd.pth',
-    'b7' : 'efficientnet-b7-dcc49843.pth'
+    'efficientnet-b0' : 'efficientnet-b0-355c32eb.pth',
+    'efficientnet-b1' : 'efficientnet-b1-f1951068.pth',
+    'efficientnet-b2' : 'efficientnet-b2-8bb594d6.pth',
+    'efficientnet-b3' : 'efficientnet-b3-5fb5a3c3.pth',
+    'efficientnet-b4' : 'efficientnet-b4-6ed6700e.pth',
+    'efficientnet-b5' : 'efficientnet-b5-b6417697.pth',
+    'efficientnet-b6' : 'efficientnet-b6-c76e70fd.pth',
+    'efficientnet-b7' : 'efficientnet-b7-dcc49843.pth'
     }
 
 class Res50(nn.Module):
@@ -48,10 +48,10 @@ class Res50(nn.Module):
         return x
 
 
-class Eff_b0(nn.Module):
+class Eff_b_(nn.Module):
     
     def __init__(self, name, out):
-        super(Net, self).__init__()
+        super(Eff_b_, self).__init__()
         self.eff_net = eff_net.EfficientNet.from_name(name)
         self.eff_net.load_state_dict(torch.load(os.path.join(
                                                 PATH_MODEL, pre_train[name])))
