@@ -138,6 +138,9 @@ dmypy.json
 cython_debug/
 
 /input
+/test
+/notebook
+/submit
 ###
 *.pkl
 *.npy
