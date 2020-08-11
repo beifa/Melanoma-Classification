@@ -4,22 +4,8 @@ from torch import nn
 import pretrainedmodels
 import torch.nn.functional as F
 from utils import Mish
-
-
-
-import sys
-sys.path = [
-    'C:\\Users\\pka\\kaggle\\EfficientNet-PyTorch-master',
-] + sys.path
 from efficientnet_pytorch import model as eff_net
 
-PATH_MODEL = r'C:\Users\pka\kaggle\EfficientNet (Standard Training & Advprop)'
-
-# from os import walk
-# f = []
-# for (dirpath, dirnames, filenames) in walk('C:\\Users\\pka\\kaggle\\EfficientNet (Standard Training & Advprop)'):
-#     f.extend(filenames)
-#     break
 
 pre_train = {
     'efficientnet-b0' : 'efficientnet-b0-355c32eb.pth',
@@ -52,9 +38,10 @@ class Eff_b_(nn.Module):
     
     def __init__(self, name, out):
         super(Eff_b_, self).__init__()
-        self.eff_net = eff_net.EfficientNet.from_name(name)
-        self.eff_net.load_state_dict(torch.load(os.path.join(
-                                                PATH_MODEL, pre_train[name])))
+        # self.eff_net = eff_net.EfficientNet.from_name(name)
+        # self.eff_net.load_state_dict(torch.load(os.path.join(
+        #                                         PATH_MODEL, pre_train[name])))
+        self.eff_net = eff_net.EfficientNet.from_pretrained(name)
         self.fc = nn.Linear(self.eff_net._fc.out_features, out)
         
     def current_net(self, x):
@@ -64,3 +51,32 @@ class Eff_b_(nn.Module):
         x = self.current_net(x)
         x = self.fc(x)
         return x
+
+class Res50_meta(nn.Module):
+    
+    def __init__(self):
+        super(Res50_meta, self).__init__()        
+        self.model = pretrainedmodels.__dict__['se_resnext50_32x4d'](pretrained = 'imagenet')       
+        self.l1 = nn.Linear(2048, 1024)
+        self.meta = nn.Sequential(
+            nn.Linear(11, 111), 
+            nn.BatchNorm1d(111),
+            nn.ReLU(),
+            nn.Linear(111, 11),
+            nn.BatchNorm1d(11),
+            nn.ReLU()
+
+        )
+        self.l0 = nn.Linear(1024 + 11, 1)
+        
+        
+    def forward(self, x, meta):      
+        bs, _, _, _ = x.shape
+
+        x = self.model.features(x)        
+        x = F.adaptive_avg_pool2d(x, 1).view(bs, -1)         
+        x = self.l1(x)
+        f = self.meta(meta)        
+        out = torch.cat((x, f), axis = 1)    
+        out = self.l0(out)         
+        return out

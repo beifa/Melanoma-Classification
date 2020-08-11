@@ -19,10 +19,14 @@ from hub import MODEL_HUB
 device = torch.device("cuda")
 
 
-PATH = r'C:\Users\pka\kaggle\melanoma\input\siim-isic-melanoma-classification'
-PATH_MODEL = r'C:\Users\pka\kaggle\melanoma\model'
-PATH_SUB = r'C:\Users\pka\kaggle\melanoma\submit'
-PATH_PNG_224_TEST = r'C:\Users\pka\kaggle\melanoma\input\siim-isic-melanoma-classification\png_224\test'
+
+
+PATH_SUB = '/home/pka/kaggle/melanoma/'
+PATH = '/home/pka/kaggle/melanoma/input'
+PATH_SUB = '/home/pka/kaggle/melanoma/submit'
+PATH_MODEL = '/home/pka/kaggle/melanoma/model'
+PATH_MODEL_TTA = '/home/pka/kaggle/melanoma/backmodel/tta'
+PATH_PNG_224_TEST = '/home/pka/kaggle/melanoma/input/test'
 
 
 
@@ -44,19 +48,27 @@ if __name__ == "__main__":
     SEED = 13
     seed_everything(SEED)
     test_df = pd.read_csv(os.path.join(PATH, 'test.csv'))
-    testd = trainDataset(test_df, PATH_PNG_224_TEST, transform = transform_test)
+    testd = trainDataset(test_df, PATH_PNG_224_TEST, transform = transform_test, transform2=None)
     testl =  DataLoader(testd, batch_size=16, sampler=SequentialSampler(testd), num_workers = 4)
   
     model = MODEL_HUB['eff']
     #name = 'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfBCEWithLogitsLoss_f0_epoch3_score0.643_best_fold.pth'
     
     list_names =  [
-        'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfBCEWithLogitsLoss_f0_epoch1_score0.857_best_fold',
-        'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfBCEWithLogitsLoss_f1_epoch4_score0.892_best_fold',
-        'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfBCEWithLogitsLoss_f2_epoch4_score0.881_best_fold',
-        'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfBCEWithLogitsLoss_f3_epoch4_score0.878_best_fold',
-        'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfBCEWithLogitsLoss_f4_epoch3_score0.884_best_fold'
+         'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f4_epoch10_score0.896_best_fold',
+         'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f3_epoch9_score0.887_best_fold',
+         'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f2_epoch13_score0.899_best_fold',
+         'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f1_epoch13_score0.902_best_fold',
+         'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f0_epoch13_score0.876_best_fold'       
         ]
+
+    # list_names =  [
+    #   'res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f0_epoch5_score0.901_best_fold',
+    #   'res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f1_epoch5_score0.927_best_fold',
+    #   'res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f2_epoch7_score0.906_best_fold',
+    #   'res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f3_epoch6_score0.915_best_fold',
+    #   'res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f4_epoch7_score0.918_best_fold'
+    # ]
 
     
     temp = []
@@ -67,23 +79,21 @@ if __name__ == "__main__":
         model.to(device)
         model.eval()
         with torch.no_grad():
-            pred = train_func(testl, model)   
-        predicts = torch.cat(pred)
-        temp.append(predicts.cpu().numpy())
-        name = list_names[i]
-        if name.endswith('best_fold'):
-            score += float(name[-15:-10])  
+            pred = train_func(testl, model)
+            predicts = torch.cat(pred)
+            temp.append(predicts.cpu().numpy()) 
+                      
+            name = list_names[i]
+            if name.endswith('best_fold'):
+                score += float(name[-15:-10])  
+
     print(f'Average scores: {score / 5}')
     f0, f1, f2, f3, f4 = temp
     p = (f0 + f1 + f2 + f3 + f4) / 5
-
+    
 
     clock = '_'.join(time.ctime().split(':')) 
-    #save
-    # if name.endswith('best_fold.pth'):
-    #     score = name[-19:-14]
-    # else:
-    #     score = name[-15:-10]
+
 
     #----------v1
     subm = pd.read_csv(os.path.join(PATH, 'sample_submission.csv'))
