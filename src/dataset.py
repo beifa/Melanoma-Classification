@@ -19,7 +19,7 @@ class trainDataset(Dataset):
     def __getitem__(self, idx):
        
         name = self.data.image_name.values[idx]      
-        image = cv2.imread(os.path.join(self.path, f'{name}.png'))
+        image = cv2.imread(os.path.join(self.path, f'{name}.jpg'))
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
         if self.transform is not None:
