@@ -20,40 +20,49 @@ from hub import MODEL_HUB
 device = torch.device("cuda")
 
 
-PATH_SUB = '/home/pka/kaggle/melanoma/'
-PATH = '/home/pka/kaggle/melanoma/input'
-PATH_SUB = '/home/pka/kaggle/melanoma/submit'
-PATH_MODEL = '/home/pka/kaggle/melanoma/model'
-PATH_MODEL_TTA = '/home/pka/kaggle/melanoma/backmodel/tta'
-PATH_PNG_224_TEST = '/home/pka/kaggle/melanoma/input/test'
+PATH_SUB = '/home/pka/kaggle/Melanoma-Classification/submit'
+PATH = '/home/pka/kaggle/Melanoma-Classification/input'
+PATH_LOG = '/home/pka/kaggle/Melanoma-Classification/log'
+PATH_MODEL = '/home/pka/kaggle/Melanoma-Classification/model'
+PATH_PNG_224 = '/home/pka/kaggle/Melanoma-Classification/input/train'
+PATH_JPG_512 = '/home/pka/kaggle/Melanoma-Classification/input/train512'
+PATH_JPG_512_TEST = '/home/pka/kaggle/Melanoma-Classification/input/test512'
 
 
 
+def train_func(dataloader, model, f = 'mean'):
+  pred = []
+  bar = tqdm(dataloader)
+  for img in bar:
+    img = img.to(device)
+    bs, ncrops, c, h, w = img.size()            
+    y_ = model(img.view(-1, c, h, w))
+    if f == 'mean':
+      y_avg = y_.view(bs, ncrops, -1).mean(1)
+      pred.append(y_avg.view(-1))
+      return pred
+    else:
+      pr = y_.view(bs, ncrops, -1)
+      pr = pr.cpu()
+      idx  = np.argmax((abs(0.5 - pr)), axis = 1)
+      y_avg  = torch.tensor([pr[i, idx[i]].item() for i in range(len(pr))])
+      pred.append(y_avg)
+      return pred
+
+#meta
 # def train_func(dataloader, model):
 #   pred = []
 #   bar = tqdm(dataloader)
-#   for img in bar:
-#     img = img.to(device)
-#     bs, ncrops, c, h, w = img.size()            
-#     y_ = model(img.view(-1, c, h, w))
+#   for img, meta in bar:
+#     img = img.to(device) 
+#     meta = meta.to(device)
+#     meta = meta.repeat(5,1,1)
+#     bs, ncrops, c, h, w = img.size()
+#     #print(img.view(-1, c, h, w).shape, meta.shape)            
+#     y_ = model(img.view(-1, c, h, w), meta.view(-1, 11))
 #     y_avg = y_.view(bs, ncrops, -1).mean(1)               
 #     pred.append(y_avg.view(-1))
 #   return pred
-
-
-def train_func(dataloader, model):
-  pred = []
-  bar = tqdm(dataloader)
-  for img, meta in bar:
-    img = img.to(device) 
-    meta = meta.to(device)
-    meta = meta.repeat(5,1,1)
-    bs, ncrops, c, h, w = img.size()
-    #print(img.view(-1, c, h, w).shape, meta.shape)            
-    y_ = model(img.view(-1, c, h, w), meta.view(-1, 11))
-    y_avg = y_.view(bs, ncrops, -1).mean(1)               
-    pred.append(y_avg.view(-1))
-  return pred
 
 if __name__ == "__main__":
     SEED = 13
@@ -67,17 +76,19 @@ if __name__ == "__main__":
     #default
     trf2 = A.Compose([
 
-        # A.Flip(),        
+        A.Flip(),        
         # A.ShiftScaleRotate(shift_limit=0.055,
         #                 scale_limit=0.21,
         #                 rotate_limit=180,
         #                 p=0.5),
 
         #test bad
-        # A.VerticalFlip(p=1),
-        # A.HorizontalFlip(p=1)
+        A.VerticalFlip(p=1),
+        A.HorizontalFlip(p=1),
+        A.Resize(224,224,p=1),
 
-        A.ShiftScaleRotate(shift_limit=0.1, scale_limit=0.2, rotate_limit=45),
+        #A.ShiftScaleRotate(shift_limit=0.1, scale_limit=0.2, rotate_limit=45),
+        A.RandomSizedCrop(min_max_height=(168, 168), height=224, width=224, p=0.8)
         
     ])
 
@@ -171,16 +182,16 @@ if __name__ == "__main__":
     SEED = 13
     seed_everything(SEED)
     test_df = pd.read_csv(os.path.join(PATH, 'test_meta.csv'))
-    # testd = meta_trainDataset(test_df, PATH_PNG_224_TEST, transform = transform_test)
-    testd = meta_ttaDataset(test_df, PATH_PNG_224_TEST, transform = trf, transform2= trf2)
+    #testd = meta_trainDataset(test_df, PATH_JPG_512_TEST, transform = transform_test)
+    testd = ttaDataset(test_df, PATH_JPG_512_TEST, transform = trf, transform2= trf2)
     testl =  DataLoader(testd, batch_size=16, sampler=SequentialSampler(testd), num_workers = 4)
   
-    model = MODEL_HUB['res50_meta']
+    model = MODEL_HUB['res50']
     #name = 'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfBCEWithLogitsLoss_f0_epoch3_score0.643_best_fold.pth'
     
 
     list_names =  [
-      'res50_meta_bz32_lr0.0003_shlReduceLROnPlateau_opAdam_lfBCEWithLogitsLoss_f0_epoch15_score0.909_best_fold',
+      'res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_0.8661734639611427_final',
       
     ]
 
@@ -193,10 +204,11 @@ if __name__ == "__main__":
         model.to(device)
         model.eval()
         with torch.no_grad():
-            pred = train_func(testl, model)
+            pred = train_func(testl, model, f ='mean')
             predicts = torch.cat(pred)
         name = list_names[i]
     p = predicts.cpu().numpy()
+    
     
 
     clock = '_'.join(time.ctime().split(':')) 
