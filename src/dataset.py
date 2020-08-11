@@ -52,7 +52,7 @@ class ttaDataset(Dataset):
     def __getitem__(self, idx):
         temp = []
         name = self.data.image_name.values[idx]        
-        image = Image.open(os.path.join(self.path, f'{name}.png'))
+        image = Image.open(os.path.join(self.path, f'{name}.jpg'))
         if self.transform: 
             image = self.transform(image)   # crop            
             for i in range(image.shape[0]):                

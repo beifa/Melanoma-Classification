@@ -21,12 +21,14 @@ device = torch.device("cuda")
 
 
 
-PATH_SUB = '/home/pka/kaggle/melanoma/'
-PATH = '/home/pka/kaggle/melanoma/input'
-PATH_SUB = '/home/pka/kaggle/melanoma/submit'
-PATH_MODEL = '/home/pka/kaggle/melanoma/model'
-PATH_MODEL_TTA = '/home/pka/kaggle/melanoma/backmodel/tta'
-PATH_PNG_224_TEST = '/home/pka/kaggle/melanoma/input/test'
+
+PATH_SUB = '/home/pka/kaggle/Melanoma-Classification/submit'
+PATH = '/home/pka/kaggle/Melanoma-Classification/input'
+PATH_LOG = '/home/pka/kaggle/Melanoma-Classification/log'
+PATH_MODEL = '/home/pka/kaggle/Melanoma-Classification/model'
+PATH_PNG_224 = '/home/pka/kaggle/Melanoma-Classification/input/train'
+PATH_JPG_512 = '/home/pka/kaggle/Melanoma-Classification/input/train512'
+PATH_JPG_512_TEST = '/home/pka/kaggle/Melanoma-Classification/input/test512'
 
 
 
@@ -51,6 +53,7 @@ def train_func(dataloader, model):
 
 transform_test = A.Compose([
     #A.Normalize(mean, std, max_pixel_value=255.0, always_apply=True)
+    A.Resize(224,224, p =1)
 ])
 
 
@@ -59,7 +62,7 @@ if __name__ == "__main__":
     seed_everything(SEED)
     test_df = pd.read_csv(os.path.join(PATH, 'test_meta.csv'))
     # testd = meta_trainDataset(test_df, PATH_PNG_224_TEST, transform = transform_test)
-    testd = trainDataset(test_df, PATH_PNG_224_TEST, transform = transform_test)
+    testd = trainDataset(test_df, PATH_JPG_512, transform = transform_test)
     testl =  DataLoader(testd, batch_size=16, sampler=SequentialSampler(testd), num_workers = 4)
   
     model = MODEL_HUB['res50']
@@ -67,7 +70,7 @@ if __name__ == "__main__":
     
 
     list_names =  [
-      'res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f0_epoch5_score0.901_best_fold',      
+      'res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_0.8661734639611427_final',      
     ]
 
     

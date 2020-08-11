@@ -31,10 +31,11 @@ import argparse
 import random
 
 
-PATH = '/home/pka/kaggle/melanoma/input'
-PATH_LOG = '/home/pka/kaggle/melanoma/log'
-PATH_MODEL = '/home/pka/kaggle/melanoma/model'
-PATH_PNG_224 = '/home/pka/kaggle/melanoma/input/train'
+PATH = '/home/pka/kaggle/Melanoma-Classification/input'
+PATH_LOG = '/home/pka/kaggle/Melanoma-Classification/log'
+PATH_MODEL = '/home/pka/kaggle/Melanoma-Classification/model'
+PATH_PNG_224 = '/home/pka/kaggle/Melanoma-Classification/input/train'
+PATH_JPG_512 = '/home/pka/kaggle/Melanoma-Classification/input/train512'
 device = torch.device("cuda")
 
 def calc_loss(loss_func, target, pred, opt, scaler):
@@ -127,16 +128,37 @@ def train_func(dataloader, model, loss_func, opt, scaler):
 
 
 transforms_train = A.Compose([
-    A.ShiftScaleRotate(shift_limit=0.1, scale_limit=0.2, rotate_limit=45),    
-       
+    A.Resize(224,224, p =1),
+    A.RandomContrast(0.2),
+    A.RandomBrightness(0.2),
+    A.VerticalFlip(),
+    A.HorizontalFlip(),
+    # A.OneOf([
+    #         A.ToGray(),
+    #         A.CLAHE(),
+    #         A.NoOp(),                                                 
+    # ]),
+    # A.OneOf([
+    #         # A.GaussianBlur(),
+    #         A.MedianBlur(7),
+    #         # A.MotionBlur(),
+    #         A.NoOp()]),
+    
+    # A.Cutout(16, 30, 30),
+    # A.Normalize (mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225), max_pixel_value=255.0, always_apply=False, p=1.0),
+    # A.RandomCrop(168, 168),
+    # A.RandomSizedCrop(min_max_height=(168, 168), height=224, width=224, p=0.5)
+    ])  
+
+
+# transforms_train2 = transforms.Compose([
+#     Microscope(p=0.5)
+# ])
+
+
+transform_val = A.Compose([
+    A.Resize(224,224, p =1)
 ])
-
-transforms_train2 = transforms.Compose([
-    Microscope(p=0.5)
-])
-
-
-transform_val = A.Compose([])
 
 if __name__ == "__main__":
     
@@ -187,8 +209,8 @@ if __name__ == "__main__":
         df = pd.read_csv(os.path.join(PATH, 'train_folds.csv'))
     tr_idx = np.where(df.fold != params['fold'])
     vl_idx = np.where(df.fold == params['fold'])
-    td = trainDataset(df.loc[tr_idx], PATH_PNG_224, transform= transforms_train, transform2 = transforms_train2)
-    vd = trainDataset(df.loc[vl_idx], PATH_PNG_224, transform= transform_val, transform2 = None)
+    td = trainDataset(df.loc[tr_idx], PATH_JPG_512, transform= transforms_train, transform2 = None)
+    vd = trainDataset(df.loc[vl_idx], PATH_JPG_512, transform= transform_val, transform2 = None)
     dl =  DataLoader(td, batch_size=params['batch_size'], sampler=RandomSampler(td),  drop_last=True, num_workers=params['num_workers'])
     vl =  DataLoader(vd, batch_size=params['batch_size'], sampler=SequentialSampler(vd), num_workers=params['num_workers'])
 
@@ -196,7 +218,7 @@ if __name__ == "__main__":
     opt = optim.Adam(model.parameters(), lr = params['lr'])
     scheduler = optim.lr_scheduler.CosineAnnealingLR(opt, params['epoch'])
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-                               opt, mode='min', factor=0.1,
+                               opt, mode='max', factor=0.1,
                                patience = 2, verbose=True
                                )
     #'BCEWithLogitsLoss', 'BCELoss'
