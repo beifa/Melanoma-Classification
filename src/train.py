@@ -126,6 +126,8 @@ def train_func(dataloader, model, loss_func, opt, scaler):
     else:
         return train_loss, pred, label
 
+mean = (0.485, 0.456, 0.406)
+std = (0.229, 0.224, 0.225)
 
 transforms_train = A.Compose([
     A.Resize(224,224, p =1),
@@ -133,21 +135,22 @@ transforms_train = A.Compose([
     A.RandomBrightness(0.2),
     A.VerticalFlip(),
     A.HorizontalFlip(),
+    #A.Normalize(mean, std, max_pixel_value=255.0, always_apply=True),
     # A.OneOf([
     #         A.ToGray(),
-    #         A.CLAHE(),
+    #         #A.CLAHE(),
     #         A.NoOp(),                                                 
     # ]),
     # A.OneOf([
     #         # A.GaussianBlur(),
-    #         A.MedianBlur(7),
+    #         A.MedianBlur(3),
     #         # A.MotionBlur(),
     #         A.NoOp()]),
     
-    # A.Cutout(16, 30, 30),
+    #A.Cutout(16, 30, 30),
     # A.Normalize (mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225), max_pixel_value=255.0, always_apply=False, p=1.0),
     # A.RandomCrop(168, 168),
-    # A.RandomSizedCrop(min_max_height=(168, 168), height=224, width=224, p=0.5)
+    #A.RandomSizedCrop(min_max_height=(168, 168), height=224, width=224, p=0.5)
     ])  
 
 
@@ -157,7 +160,8 @@ transforms_train = A.Compose([
 
 
 transform_val = A.Compose([
-    A.Resize(224,224, p =1)
+    A.Resize(224,224, p =1),
+    A.Normalize(mean, std, max_pixel_value=255.0, always_apply=True)
 ])
 
 if __name__ == "__main__":
@@ -166,17 +170,17 @@ if __name__ == "__main__":
     parser.add_argument('-f', '--fold', type=int, help = 'add fold number', default=0)    
     parser.add_argument('-e', '--epoch', type=int, help = 'add count epoch', default= 10)    
     parser.add_argument('-n', '--num_workers', type=int, help = 'num_workers', default= 4)
-    parser.add_argument('-m', '--model', type=str, help = 'name model to train : res50, eff(name, out)', default = 'res50')
+    parser.add_argument('-m', '--model', type=str, help = 'name model to train : res50, eff(N), senet154,se_resnet152', default = 'res50')
     parser.add_argument('-l', '--loss_func', type=str, help = 'loss func : BCEWithLogitsLoss, BCELoss, dice_loss, FocalLoss, MixedLoss ', default = 'BCEWithLogitsLoss')
     parser.add_argument('-d', '--debag', type=bool, help = 'small data set', default = False)
     
-
+    
 
     pars = parser.parse_args()
 
     params = {
         'SEED': 13,
-        'batch_size': 32,
+        'batch_size': 9,
         'lr': 1e-4,
         'num_workers' : pars.num_workers,
         'epoch': pars.epoch,
@@ -198,6 +202,10 @@ if __name__ == "__main__":
     two folds:
         -target   col name stkf_target 
         -patient  col name stkf_patient
+
+    train_folds_5split.csv
+        -Gfold_v1
+        -Gfold_v2
     
     """
 
@@ -206,9 +214,9 @@ if __name__ == "__main__":
         print(pars)
         df = pd.read_csv(os.path.join(PATH, 'train_folds.csv')).head(1000)
     else:
-        df = pd.read_csv(os.path.join(PATH, 'train_folds.csv'))
-    tr_idx = np.where(df.fold != params['fold'])
-    vl_idx = np.where(df.fold == params['fold'])
+        df = pd.read_csv(os.path.join(PATH, 'train_folds_5split.csv'))
+    tr_idx = np.where(df.Gfold_v2 != params['fold'])
+    vl_idx = np.where(df.Gfold_v2 == params['fold'])
     td = trainDataset(df.loc[tr_idx], PATH_JPG_512, transform= transforms_train, transform2 = None)
     vd = trainDataset(df.loc[vl_idx], PATH_JPG_512, transform= transform_val, transform2 = None)
     dl =  DataLoader(td, batch_size=params['batch_size'], sampler=RandomSampler(td),  drop_last=True, num_workers=params['num_workers'])
@@ -270,7 +278,7 @@ if __name__ == "__main__":
         print(cm_out)
         print('\n')
         torch.cuda.empty_cache()   
-        scheduler.step(roc)
+        scheduler.step(np.mean(loss_val))
         #scheduler.step(e -1)
         es(roc, model, PATH_MODEL)
         if es.early_stop:
