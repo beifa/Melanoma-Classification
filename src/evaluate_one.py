@@ -56,7 +56,7 @@ std = (0.229, 0.224, 0.225)
 
 transform_test = A.Compose([
     A.Normalize(mean, std, max_pixel_value=255.0, always_apply=True),
-    A.Resize(380,380, p =1)
+    A.Resize(300,300, p =1)
 ])
 
 
@@ -68,13 +68,13 @@ if __name__ == "__main__":
     testd = trainDataset(test_df, PATH_JPG_512_TEST, transform = transform_test)
     testl =  DataLoader(testd, batch_size=16, sampler=SequentialSampler(testd), num_workers = 4)
   
-    model = MODEL_HUB['eff4']
+    model = MODEL_HUB['eff3']
     #name = 'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfBCEWithLogitsLoss_f0_epoch3_score0.643_best_fold.pth'
     
 
     list_names =  [
-      'eff4_bz9_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f0_epoch9_score0.919_best_fold'
-      #'epoch7_score0.852_best_fold',      
+
+      'epoch6_score0.793_best_fold'      
     ]
 
     

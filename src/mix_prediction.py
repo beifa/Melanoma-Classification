@@ -1,10 +1,12 @@
 import os
 import time
 import pandas as pd
-PATH = '/home/pka/kaggle/melanoma/input'
-PATH_SUB = '/home/pka/kaggle/melanoma/submit'
-s1 = 'Sun Aug  9 22_36_48 2020_eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f0_epoch13_score0.876_best_fold_0.892_submit_test2.csv'
-s2 = 'Sun Aug  9 18_33_43 2020_res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f4_epoch7_score0.918_best_fold_0.9134_submit_test2.csv'
+
+PATH_SUB = '/home/pka/kaggle/Melanoma-Classification/submit'
+PATH = '/home/pka/kaggle/Melanoma-Classification/input'
+
+s1 = 'Thu Aug 13 17_31_04 2020_eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f4_epoch5_score0.888_best_fold_0.8946_submit_test2.csv'
+s2 = 'Thu Aug 13 13_37_38 2020_res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f4_epoch5_score0.909_best_fold_0.9132000000000001_submit_test2.csv'
 
 if __name__ == "__main__": 
     clock = '_'.join(time.ctime().split(':')) 

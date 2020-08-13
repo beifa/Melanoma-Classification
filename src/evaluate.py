@@ -21,12 +21,13 @@ device = torch.device("cuda")
 
 
 
-PATH_SUB = '/home/pka/kaggle/melanoma/'
-PATH = '/home/pka/kaggle/melanoma/input'
-PATH_SUB = '/home/pka/kaggle/melanoma/submit'
-PATH_MODEL = '/home/pka/kaggle/melanoma/model'
-PATH_MODEL_TTA = '/home/pka/kaggle/melanoma/backmodel/tta'
-PATH_PNG_224_TEST = '/home/pka/kaggle/melanoma/input/test'
+PATH_SUB = '/home/pka/kaggle/Melanoma-Classification/submit'
+PATH = '/home/pka/kaggle/Melanoma-Classification/input'
+PATH_LOG = '/home/pka/kaggle/Melanoma-Classification/log'
+PATH_MODEL = '/home/pka/kaggle/Melanoma-Classification/model'
+PATH_PNG_224 = '/home/pka/kaggle/Melanoma-Classification/input/train'
+PATH_JPG_512 = '/home/pka/kaggle/Melanoma-Classification/input/train512'
+PATH_JPG_512_TEST = '/home/pka/kaggle/Melanoma-Classification/input/test512'
 
 
 
@@ -41,6 +42,7 @@ def train_func(dataloader, model):
 
 transform_test = A.Compose([
     #A.Normalize(mean, std, max_pixel_value=255.0, always_apply=True)
+    A.Resize(300,300, p =1)
 ])
 
 
@@ -48,27 +50,27 @@ if __name__ == "__main__":
     SEED = 13
     seed_everything(SEED)
     test_df = pd.read_csv(os.path.join(PATH, 'test.csv'))
-    testd = trainDataset(test_df, PATH_PNG_224_TEST, transform = transform_test, transform2=None)
+    testd = trainDataset(test_df, PATH_JPG_512_TEST, transform = transform_test, transform2=None)
     testl =  DataLoader(testd, batch_size=16, sampler=SequentialSampler(testd), num_workers = 4)
   
-    model = MODEL_HUB['eff']
+    model = MODEL_HUB['eff2']
     #name = 'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfBCEWithLogitsLoss_f0_epoch3_score0.643_best_fold.pth'
     
-    list_names =  [
-         'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f4_epoch10_score0.896_best_fold',
-         'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f3_epoch9_score0.887_best_fold',
-         'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f2_epoch13_score0.899_best_fold',
-         'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f1_epoch13_score0.902_best_fold',
-         'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f0_epoch13_score0.876_best_fold'       
-        ]
-
     # list_names =  [
-    #   'res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f0_epoch5_score0.901_best_fold',
-    #   'res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f1_epoch5_score0.927_best_fold',
-    #   'res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f2_epoch7_score0.906_best_fold',
-    #   'res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f3_epoch6_score0.915_best_fold',
-    #   'res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f4_epoch7_score0.918_best_fold'
-    # ]
+    #      'res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f0_epoch7_score0.920_best_fold',
+    #      'res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f1_epoch5_score0.909_best_fold',
+    #      'res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f2_epoch5_score0.906_best_fold',
+    #      'res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f3_epoch10_score0.922_best_fold',
+    #      'res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f4_epoch5_score0.909_best_fold'       
+    #     ]
+
+    list_names =  [
+      'eff2_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f0_epoch8_score0.901_best_fold',
+      'eff2_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f1_epoch2_score0.886_best_fold',
+      'eff2_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f2_epoch5_score0.871_best_fold',
+      'eff2_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f3_epoch5_score0.892_best_fold',
+      'eff2_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f4_epoch5_score0.905_best_fold'
+    ]
 
     
     temp = []
