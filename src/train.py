@@ -126,15 +126,15 @@ def train_func(dataloader, model, loss_func, opt, scaler):
     else:
         return train_loss, pred, label
 
-mean = (0.485, 0.456, 0.406)
-std = (0.229, 0.224, 0.225)
+# mean = (0.485, 0.456, 0.406)
+# std = (0.229, 0.224, 0.225)
 
-transforms_train = A.Compose([
-    A.Resize(224,224, p =1),
-    A.RandomContrast(0.2),
-    A.RandomBrightness(0.2),
-    A.VerticalFlip(),
-    A.HorizontalFlip(),
+# transforms_train = A.Compose([
+#     A.Resize(224,224, p =1),
+#     A.RandomContrast(0.2),
+#     A.RandomBrightness(0.2),
+#     A.VerticalFlip(),
+#     A.HorizontalFlip(),
     #A.Normalize(mean, std, max_pixel_value=255.0, always_apply=True),
     # A.OneOf([
     #         A.ToGray(),
@@ -151,18 +151,13 @@ transforms_train = A.Compose([
     # A.Normalize (mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225), max_pixel_value=255.0, always_apply=False, p=1.0),
     # A.RandomCrop(168, 168),
     #A.RandomSizedCrop(min_max_height=(168, 168), height=224, width=224, p=0.5)
-    ])  
+    # ])  
 
 
 # transforms_train2 = transforms.Compose([
 #     Microscope(p=0.5)
 # ])
 
-
-transform_val = A.Compose([
-    A.Resize(224,224, p =1),
-    A.Normalize(mean, std, max_pixel_value=255.0, always_apply=True)
-])
 
 if __name__ == "__main__":
     
@@ -173,6 +168,7 @@ if __name__ == "__main__":
     parser.add_argument('-m', '--model', type=str, help = 'name model to train : res50, eff(N), senet154,se_resnet152', default = 'res50')
     parser.add_argument('-l', '--loss_func', type=str, help = 'loss func : BCEWithLogitsLoss, BCELoss, dice_loss, FocalLoss, MixedLoss ', default = 'BCEWithLogitsLoss')
     parser.add_argument('-d', '--debag', type=bool, help = 'small data set', default = False)
+    parser.add_argument('-s', '--size', type=int, help = 'size to reshape  size image, one value', default = 224)
     
     
 
@@ -180,19 +176,36 @@ if __name__ == "__main__":
 
     params = {
         'SEED': 13,
-        'batch_size': 9,
+        'batch_size': 32,
         'lr': 1e-4,
         'num_workers' : pars.num_workers,
         'epoch': pars.epoch,
         'fold': pars.fold,
         'model': pars.model,
-        'loss_func' : pars.loss_func
+        'loss_func' : pars.loss_func,
+        'img_size' : pars.size
     }
     log = True
     seed_everything(params['SEED'])    
     model = MODEL_HUB[params['model']]
     kernel = params['model']   
-    model.to(device)  
+    model.to(device) 
+
+    mean = (0.485, 0.456, 0.406)
+    std = (0.229, 0.224, 0.225)
+
+    transforms_train = A.Compose([
+                       A.Resize(params['img_size'],params['img_size'], p =1),
+                       A.RandomContrast(0.2),
+                       A.RandomBrightness(0.2),
+                       A.VerticalFlip(),
+                       A.HorizontalFlip()
+                    ])  
+    transform_val = A.Compose([
+                    A.Resize(params['img_size'],params['img_size'], p =1),
+                    # A.Normalize(mean, std, max_pixel_value=255.0, always_apply=True)
+            
+            ])
 
     """
     old --> train_folds.csv --> fold0 get 0.899 res50
