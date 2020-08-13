@@ -20,9 +20,9 @@ pre_train = {
 
 class Res50(nn.Module):
     
-    def __init__(self):
+    def __init__(self, name):
         super(Res50, self).__init__()        
-        self.model = pretrainedmodels.__dict__['se_resnext50_32x4d'](pretrained = 'imagenet')       
+        self.model = pretrainedmodels.__dict__[name](pretrained = 'imagenet')       
         self.l1 = nn.Linear(2048, 1)
         
         
@@ -38,9 +38,6 @@ class Eff_b_(nn.Module):
     
     def __init__(self, name, out):
         super(Eff_b_, self).__init__()
-        # self.eff_net = eff_net.EfficientNet.from_name(name)
-        # self.eff_net.load_state_dict(torch.load(os.path.join(
-        #                                         PATH_MODEL, pre_train[name])))
         self.eff_net = eff_net.EfficientNet.from_pretrained(name)
         self.fc = nn.Linear(self.eff_net._fc.out_features, out)
         
