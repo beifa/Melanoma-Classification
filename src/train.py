@@ -126,38 +126,6 @@ def train_func(dataloader, model, loss_func, opt, scaler):
     else:
         return train_loss, pred, label
 
-# mean = (0.485, 0.456, 0.406)
-# std = (0.229, 0.224, 0.225)
-
-# transforms_train = A.Compose([
-#     A.Resize(224,224, p =1),
-#     A.RandomContrast(0.2),
-#     A.RandomBrightness(0.2),
-#     A.VerticalFlip(),
-#     A.HorizontalFlip(),
-    #A.Normalize(mean, std, max_pixel_value=255.0, always_apply=True),
-    # A.OneOf([
-    #         A.ToGray(),
-    #         #A.CLAHE(),
-    #         A.NoOp(),                                                 
-    # ]),
-    # A.OneOf([
-    #         # A.GaussianBlur(),
-    #         A.MedianBlur(3),
-    #         # A.MotionBlur(),
-    #         A.NoOp()]),
-    
-    #A.Cutout(16, 30, 30),
-    # A.Normalize (mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225), max_pixel_value=255.0, always_apply=False, p=1.0),
-    # A.RandomCrop(168, 168),
-    #A.RandomSizedCrop(min_max_height=(168, 168), height=224, width=224, p=0.5)
-    # ])  
-
-
-# transforms_train2 = transforms.Compose([
-#     Microscope(p=0.5)
-# ])
-
 
 if __name__ == "__main__":
     
@@ -169,6 +137,8 @@ if __name__ == "__main__":
     parser.add_argument('-l', '--loss_func', type=str, help = 'loss func : BCEWithLogitsLoss, BCELoss, dice_loss, FocalLoss, MixedLoss ', default = 'BCEWithLogitsLoss')
     parser.add_argument('-d', '--debag', type=bool, help = 'small data set', default = False)
     parser.add_argument('-s', '--size', type=int, help = 'size to reshape  size image, one value', default = 224)
+    parser.add_argument('-opt', '--optimizer', default='adam', choices=['sgd', 'adam', 'rmsprop'])
+    parser.add_argument('-shl', '--scheduler', default='plateau', choices=['plateau', 'slr'])
     
     
 
@@ -176,15 +146,15 @@ if __name__ == "__main__":
 
     params = {
         'SEED': 13,
-        'batch_size': 32,
+        'batch_size': 24,
         'lr': 1e-4,
         'num_workers' : pars.num_workers,
         'epoch': pars.epoch,
         'fold': pars.fold,
         'model': pars.model,
-        'loss_func' : pars.loss_func,
-        'img_size' : pars.size
+        'loss_func' : pars.loss_func,     
     }
+
     log = True
     seed_everything(params['SEED'])    
     model = MODEL_HUB[params['model']]
@@ -195,17 +165,20 @@ if __name__ == "__main__":
     std = (0.229, 0.224, 0.225)
 
     transforms_train = A.Compose([
-                       A.Resize(params['img_size'],params['img_size'], p =1),
+                       A.Resize(pars.size,pars.size, p =1),
+                       A.VerticalFlip(p=0.5),
+                       A.HorizontalFlip(p=0.5), 
                        A.RandomContrast(0.2),
                        A.RandomBrightness(0.2),
-                       A.VerticalFlip(),
-                       A.HorizontalFlip()
-                    ])  
+                       A.Cutout(16, 54, 54),
+                       A.RandomSizedCrop(min_max_height=(224, 224), height=300, width=300, p=0.5),
+                       A.Normalize(mean, std, max_pixel_value=255.0, always_apply=True)
+                    ]
+                    )  
     transform_val = A.Compose([
-                    A.Resize(params['img_size'],params['img_size'], p =1),
-                    # A.Normalize(mean, std, max_pixel_value=255.0, always_apply=True)
-            
-            ])
+                    A.Resize(pars.size,pars.size, p =1),
+                    A.Normalize(mean, std, max_pixel_value=255.0, always_apply=True)
+                    ])
 
     """
     old --> train_folds.csv --> fold0 get 0.899 res50
@@ -225,7 +198,7 @@ if __name__ == "__main__":
     if pars.debag:
         print('Debag....')
         print(pars)
-        df = pd.read_csv(os.path.join(PATH, 'train_folds.csv')).head(1000)
+        df = pd.read_csv(os.path.join(PATH, 'train_folds_5split.csv')).head(1000)
     else:
         df = pd.read_csv(os.path.join(PATH, 'train_folds_5split.csv'))
     tr_idx = np.where(df.Gfold_v2 != params['fold'])
@@ -235,13 +208,35 @@ if __name__ == "__main__":
     dl =  DataLoader(td, batch_size=params['batch_size'], sampler=RandomSampler(td),  drop_last=True, num_workers=params['num_workers'])
     vl =  DataLoader(vd, batch_size=params['batch_size'], sampler=SequentialSampler(vd), num_workers=params['num_workers'])
 
+    #optim
 
-    opt = optim.Adam(model.parameters(), lr = params['lr'])
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(opt, params['epoch'])
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-                               opt, mode='max', factor=0.1,
-                               patience = 2, verbose=True
-                               )
+    if pars.optimizer == 'adam':        
+        opt = optim.Adam(model.parameters(),
+                               weight_decay=0.0001,
+                               lr = params['lr'])
+    elif pars.optimizer == 'rmsprop':        
+        opt = optim.RMSprop(model.parameters(),
+                                  lr= params['lr'],
+                                  weight_decay=0.0008) 
+    else:
+        opt = optim.SGD(model.parameters(),
+                              weight_decay=0.0001,
+                              lr = params['lr'],
+                              momentum=0.9,
+                              nesterov=False)
+
+    #shl
+    if pars.scheduler == 'slr':
+        scheduler = optim.lr_scheduler.StepLR(opt, 15, gamma=0.5) 
+    else:
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+                                          opt, mode='max', factor=0.5,
+                                          patience = 2, verbose=True
+                                          )
+    
+    print(f'Optimizer: {pars.optimizer}')
+    print(f'Scheduler: {pars.scheduler}')
+                        
     #'BCEWithLogitsLoss', 'BCELoss'
     loss_func =  params['loss_func']
     scaler = amp.GradScaler()  
@@ -253,7 +248,8 @@ if __name__ == "__main__":
     init = f"{params['model']}_bz{params['batch_size']}_lr{params['lr']}_shl{type(scheduler).__name__}_op{type(opt).__name__}_lf{params['loss_func']}"
     es = EarlyStopping(5, 'max')
     all_tp = []  
-    for e in range(params['epoch']):        
+    for e in range(params['epoch']):
+        scheduler.step(e)        
         print('Epoch ....... ', e)   
         model.train()
         if loss_func == 'BCELoss': scaler = None
@@ -279,10 +275,10 @@ if __name__ == "__main__":
             with open(os.path.join(PATH_LOG, f'log_{kernel}.txt'), 'a') as app:
                 app.write(lg + '\n')
         
-        if roc > roc_baseline:
+        if F1 > roc_baseline:
             print('Best ({:.6f} --> {:.6f}).  Saving model ...'.format(roc_baseline, roc))            
             torch.save(model.state_dict(), os.path.join(PATH_MODEL, f"{init}_f{params['fold']}_epoch{e}_score{roc.round(3)}_best_fold.pth"))
-            roc_baseline = roc
+            roc_baseline = F1
         print('------------')
         print(f'Recall {recall}, precision {precision}, F1 {F1}')
         print(f'TruePositive : {tp}, FalseNegative : {fn}, ratio : {tp/fn}, mean all epoch TP: {np.mean(all_tp)}')
@@ -290,10 +286,11 @@ if __name__ == "__main__":
         
         print(cm_out)
         print('\n')
-        torch.cuda.empty_cache()   
-        scheduler.step(np.mean(loss_val))
-        #scheduler.step(e -1)
-        es(roc, model, PATH_MODEL)
+        torch.cuda.empty_cache()
+
+        #scheduler.step(np.mean(loss_val))
+
+        es(F1, model, PATH_MODEL)
         if es.early_stop:
             print('Erlystopp')
             break

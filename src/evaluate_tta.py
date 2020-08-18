@@ -67,16 +67,21 @@ if __name__ == "__main__":
     SEED = 13
     seed_everything(SEED)
 
+    
+    mean = (0.485, 0.456, 0.406)
+    std = (0.229, 0.224, 0.225) 
+
     trf = transforms.Compose([
-        transforms.FiveCrop((224,224)), # this is a list of PIL Images  
+        transforms.FiveCrop((300,300)), # this is a list of PIL Images  
         transforms.Lambda(lambda crops:     
                       torch.stack([transforms.ToTensor()(crop) for crop in crops]))
                       ])
     #default
     trf2 = A.Compose([      
-      A.Resize(224,224, p =1),
+      A.Resize(300,300, p =1),
       A.VerticalFlip(p=1),
       A.HorizontalFlip(p=1), 
+      A.Normalize(mean, std, max_pixel_value=255.0, always_apply=True)
       # A.Flip(),
       # A.RandomBrightnessContrast(
       #       brightness_limit=0.2, 
@@ -119,16 +124,16 @@ if __name__ == "__main__":
     testd = ttaDataset(test_df, PATH_JPG_512_TEST, transform = trf, transform2= trf2)
     testl =  DataLoader(testd, batch_size=16, sampler=SequentialSampler(testd), num_workers = 4)
   
-    model = MODEL_HUB['eff']
+    model = MODEL_HUB['eff3']
     #name = 'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfBCEWithLogitsLoss_f0_epoch3_score0.643_best_fold.pth'
     
-    list_names =  [
-      'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f0_epoch18_score0.903_best_fold',
-      'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f1_epoch12_score0.894_best_fold',
-      'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f2_epoch8_score0.872_best_fold',
-      'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f3_epoch16_score0.916_best_fold',
-      'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f4_epoch5_score0.888_best_fold'
-    ]
+    # list_names =  [
+    #   'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f0_epoch18_score0.903_best_fold',
+    #   'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f1_epoch12_score0.894_best_fold',
+    #   'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f2_epoch8_score0.872_best_fold',
+    #   'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f3_epoch16_score0.916_best_fold',
+    #   'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f4_epoch5_score0.888_best_fold'
+    # ]
     
     # list_names =  [
     #      'res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f0_epoch7_score0.920_best_fold',
@@ -137,6 +142,14 @@ if __name__ == "__main__":
     #      'res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f3_epoch10_score0.922_best_fold',
     #      'res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f4_epoch5_score0.909_best_fold'       
     #     ]
+
+    list_names =  [
+      'eff3_bz24_lr0.0001_shlStepLR_opAdam_lfBCEWithLogitsLoss_f0_epoch9_score0.886_best_fold',
+      'eff3_bz24_lr0.0001_shlStepLR_opAdam_lfBCEWithLogitsLoss_f1_epoch11_score0.885_best_fold',
+      'eff3_bz24_lr0.0001_shlStepLR_opAdam_lfBCEWithLogitsLoss_f2_epoch9_score0.881_best_fold',
+      'eff3_bz24_lr0.0001_shlStepLR_opAdam_lfBCEWithLogitsLoss_f3_epoch11_score0.911_best_fold',
+      'eff3_bz24_lr0.0001_shlStepLR_opAdam_lfBCEWithLogitsLoss_f4_epoch10_score0.887_best_fold'
+    ]
 
     
 
