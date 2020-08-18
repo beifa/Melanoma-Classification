@@ -18,16 +18,13 @@ from dataset import trainDataset, meta_trainDataset
 from hub import MODEL_HUB   
 device = torch.device("cuda")
 
-
-
-
-PATH_SUB = '/home/pka/kaggle/melanoma/'
-PATH = '/home/pka/kaggle/melanoma/input'
-PATH_SUB = '/home/pka/kaggle/melanoma/submit'
-PATH_MODEL = '/home/pka/kaggle/melanoma/model'
-PATH_MODEL_TTA = '/home/pka/kaggle/melanoma/backmodel/tta'
-PATH_PNG_224_TEST = '/home/pka/kaggle/melanoma/input/test'
-
+PATH_SUB = '/home/pka/kaggle/Melanoma-Classification/submit'
+PATH = '/home/pka/kaggle/Melanoma-Classification/input'
+PATH_LOG = '/home/pka/kaggle/Melanoma-Classification/log'
+PATH_MODEL = '/home/pka/kaggle/Melanoma-Classification/model'
+PATH_PNG_224 = '/home/pka/kaggle/Melanoma-Classification/input/train'
+PATH_JPG_512 = '/home/pka/kaggle/Melanoma-Classification/input/train512'
+PATH_JPG_512_TEST = '/home/pka/kaggle/Melanoma-Classification/input/test512'
 
 
 def train_func(dataloader, model):
@@ -39,18 +36,22 @@ def train_func(dataloader, model):
     pred.append(y_.view(-1))
   return pred
 
-# def train_func(dataloader, model):
-#   pred = []
-#   bar = tqdm(dataloader)
-#   for img, meta in bar:
-#     img = img.to(device) 
-#     meta = meta.to(device)
-#     y_ = model(img, meta)                 
-#     pred.append(y_.view(-1))
-#   return pred
+def train_func(dataloader, model):
+  pred = []
+  bar = tqdm(dataloader)
+  for img, meta in bar:
+    img = img.to(device) 
+    meta = meta.to(device)
+    y_ = model(img, meta)                 
+    pred.append(y_.view(-1))
+  return pred
+
+mean = (0.485, 0.456, 0.406)
+std = (0.229, 0.224, 0.225)
 
 transform_test = A.Compose([
-    #A.Normalize(mean, std, max_pixel_value=255.0, always_apply=True)
+    A.Normalize(mean, std, max_pixel_value=255.0, always_apply=True),
+    A.Resize(300,300, p =1)
 ])
 
 
@@ -58,18 +59,17 @@ if __name__ == "__main__":
     SEED = 13
     seed_everything(SEED)
     test_df = pd.read_csv(os.path.join(PATH, 'test_meta.csv'))
-    # testd = meta_trainDataset(test_df, PATH_PNG_224_TEST, transform = transform_test)
-    testd = trainDataset(test_df, PATH_PNG_224_TEST, transform = transform_test)
+    if meta:
+      testd = meta_trainDataset(test_df, PATH_JPG_512_TEST, transform = transform_test)
+    else:
+      testd = trainDataset(test_df, PATH_JPG_512_TEST, transform = transform_test)
     testl =  DataLoader(testd, batch_size=16, sampler=SequentialSampler(testd), num_workers = 4)
   
-    model = MODEL_HUB['res50']
-    #name = 'eff_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfBCEWithLogitsLoss_f0_epoch3_score0.643_best_fold.pth'
-    
+    model = MODEL_HUB['eff3']  
 
     list_names =  [
-      'res50_bz32_lr0.0001_shlReduceLROnPlateau_opAdam_lfFocalLoss_f0_epoch5_score0.901_best_fold',      
+      'epoch19_score0.837_best_fold'     
     ]
-
     
     temp = []
     score = 0
@@ -79,16 +79,16 @@ if __name__ == "__main__":
         model.to(device)
         model.eval()
         with torch.no_grad():
+          if meta:
+            pred = train_func_meta(testl, model)
+          else:
             pred = train_func(testl, model)
-            predicts = torch.cat(pred)
+          predicts = torch.cat(pred)
         name = list_names[i]
     p = predicts.cpu().numpy()
-    
-
     clock = '_'.join(time.ctime().split(':')) 
-
-
-    #----------v1
+    
+     #----------v1
     subm = pd.read_csv(os.path.join(PATH, 'sample_submission.csv'))
     subm['target'] = p
     subm.to_csv(os.path.join(PATH_SUB, f'{clock}_{name}_{score/5}.csv'), index=False)

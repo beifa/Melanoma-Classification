@@ -19,8 +19,8 @@ class trainDataset(Dataset):
     def __getitem__(self, idx):
        
         name = self.data.image_name.values[idx]      
-        image = cv2.imread(os.path.join(self.path, f'{name}.png'))
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = Image.open(os.path.join(self.path, f'{name}.jpg'))
+        image = np.array(image)
 
         if self.transform is not None:
             image = self.transform(image=image)['image']
@@ -30,7 +30,7 @@ class trainDataset(Dataset):
             image = self.transform2(image)
 
         image = image.astype(np.float32)
-        image /= 255
+        # image /= 255
         image = np.transpose(image, (2, 0, 1))
         if 'test' in self.path:
             return torch.tensor(image)
@@ -52,7 +52,7 @@ class ttaDataset(Dataset):
     def __getitem__(self, idx):
         temp = []
         name = self.data.image_name.values[idx]        
-        image = Image.open(os.path.join(self.path, f'{name}.png'))
+        image = Image.open(os.path.join(self.path, f'{name}.jpg'))
         if self.transform: 
             image = self.transform(image)   # crop            
             for i in range(image.shape[0]):                
@@ -73,39 +73,33 @@ class ttaDataset(Dataset):
 
 class meta_trainDataset(Dataset):
      
-    def __init__(self, data, path, transform = None):
-        self.data = data
-        self.path = path
-        self.transform = transform
-       
+  def __init__(self, data, path, transform = None):
+      self.data = data
+      self.path = path
+      self.transform = transform
+      
 
-    def __len__(self):
-        return len(self.data)
+  def __len__(self):
+      return len(self.data)
 
-    def __getitem__(self, idx):
-        
-        name = self.data.image_name.values[idx]
-                
-        image = cv2.imread(os.path.join(self.path, f'{name}.png'))
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+  def __getitem__(self, idx):
+      
+      name = self.data.image_name.values[idx]     
+      image = Image.open(os.path.join(self.path, f'{name}.jpg'))
+      image = np.array(image)
+      if self.transform is not None:
+          image = self.transform(image=image)['image']      
+      image = image.astype(np.float32)
+      image /= 255
+      image = np.transpose(image, (2, 0, 1))        
 
-        if self.transform is not None:
-            image = self.transform(image=image)['image']
+      if 'test' in self.path: 
+          meta = self.data.iloc[idx].drop('image_name').values.astype(np.float32)
+          return torch.tensor(image), meta
 
-        
-        image = image.astype(np.float32)
-        image /= 255
-        image = np.transpose(image, (2, 0, 1))       
-        
-
-        if 'test' in self.path:         
-
-            meta = self.data.iloc[idx].drop('image_name').values.astype(np.float32)
-            return torch.tensor(image), meta
-
-        meta = self.data.iloc[idx].drop(['target', 'fold', 'image_name']).values.astype(np.float32)
-        target = self.data.target.values[idx]
-        return torch.tensor(image), torch.tensor(meta), torch.tensor(target, dtype = torch.float)
+      meta = self.data.iloc[idx].drop(['target', 'fold', 'image_name']).values.astype(np.float32)
+      target = self.data.target.values[idx]
+      return torch.tensor(image), torch.tensor(meta), torch.tensor(target, dtype = torch.float)
 
 
 class meta_ttaDataset(Dataset):

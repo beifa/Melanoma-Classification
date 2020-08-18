@@ -31,10 +31,11 @@ import argparse
 import random
 
 
-PATH = '/home/pka/kaggle/melanoma/input'
-PATH_LOG = '/home/pka/kaggle/melanoma/log'
-PATH_MODEL = '/home/pka/kaggle/melanoma/model'
-PATH_PNG_224 = '/home/pka/kaggle/melanoma/input/train'
+PATH = '/home/pka/kaggle/Melanoma-Classification/input'
+PATH_LOG = '/home/pka/kaggle/Melanoma-Classification/log'
+PATH_MODEL = '/home/pka/kaggle/Melanoma-Classification/model'
+PATH_PNG_224 = '/home/pka/kaggle/Melanoma-Classification/input/train'
+PATH_JPG_512 = '/home/pka/kaggle/Melanoma-Classification/input/train512'
 device = torch.device("cuda")
 
 def calc_loss(loss_func, target, pred, opt, scaler):
@@ -126,47 +127,58 @@ def train_func(dataloader, model, loss_func, opt, scaler):
         return train_loss, pred, label
 
 
-transforms_train = A.Compose([
-    A.ShiftScaleRotate(shift_limit=0.1, scale_limit=0.2, rotate_limit=45),    
-       
-])
-
-transforms_train2 = transforms.Compose([
-    Microscope(p=0.5)
-])
-
-
-transform_val = A.Compose([])
-
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description='Train model')
     parser.add_argument('-f', '--fold', type=int, help = 'add fold number', default=0)    
     parser.add_argument('-e', '--epoch', type=int, help = 'add count epoch', default= 10)    
     parser.add_argument('-n', '--num_workers', type=int, help = 'num_workers', default= 4)
-    parser.add_argument('-m', '--model', type=str, help = 'name model to train : res50, eff(name, out)', default = 'res50')
+    parser.add_argument('-m', '--model', type=str, help = 'name model to train : res50, eff(N), senet154,se_resnet152', default = 'res50')
     parser.add_argument('-l', '--loss_func', type=str, help = 'loss func : BCEWithLogitsLoss, BCELoss, dice_loss, FocalLoss, MixedLoss ', default = 'BCEWithLogitsLoss')
     parser.add_argument('-d', '--debag', type=bool, help = 'small data set', default = False)
+    parser.add_argument('-s', '--size', type=int, help = 'size to reshape  size image, one value', default = 224)
+    parser.add_argument('-opt', '--optimizer', default='adam', choices=['sgd', 'adam', 'rmsprop'])
+    parser.add_argument('-shl', '--scheduler', default='plateau', choices=['plateau', 'slr'])
     
-
+    
 
     pars = parser.parse_args()
 
     params = {
         'SEED': 13,
-        'batch_size': 32,
+        'batch_size': 24,
         'lr': 1e-4,
         'num_workers' : pars.num_workers,
         'epoch': pars.epoch,
         'fold': pars.fold,
         'model': pars.model,
-        'loss_func' : pars.loss_func
+        'loss_func' : pars.loss_func,     
     }
+
     log = True
     seed_everything(params['SEED'])    
     model = MODEL_HUB[params['model']]
     kernel = params['model']   
-    model.to(device)  
+    model.to(device) 
+
+    mean = (0.485, 0.456, 0.406)
+    std = (0.229, 0.224, 0.225)
+
+    transforms_train = A.Compose([
+                       A.Resize(pars.size,pars.size, p =1),
+                       A.VerticalFlip(p=0.5),
+                       A.HorizontalFlip(p=0.5), 
+                       A.RandomContrast(0.2),
+                       A.RandomBrightness(0.2),
+                       A.Cutout(16, 54, 54),
+                       A.RandomSizedCrop(min_max_height=(224, 224), height=300, width=300, p=0.5),
+                       A.Normalize(mean, std, max_pixel_value=255.0, always_apply=True)
+                    ]
+                    )  
+    transform_val = A.Compose([
+                    A.Resize(pars.size,pars.size, p =1),
+                    A.Normalize(mean, std, max_pixel_value=255.0, always_apply=True)
+                    ])
 
     """
     old --> train_folds.csv --> fold0 get 0.899 res50
@@ -176,29 +188,55 @@ if __name__ == "__main__":
     two folds:
         -target   col name stkf_target 
         -patient  col name stkf_patient
+
+    train_folds_5split.csv
+        -Gfold_v1
+        -Gfold_v2
     
     """
 
     if pars.debag:
         print('Debag....')
         print(pars)
-        df = pd.read_csv(os.path.join(PATH, 'train_folds.csv')).head(1000)
+        df = pd.read_csv(os.path.join(PATH, 'train_folds_5split.csv')).head(1000)
     else:
-        df = pd.read_csv(os.path.join(PATH, 'train_folds.csv'))
-    tr_idx = np.where(df.fold != params['fold'])
-    vl_idx = np.where(df.fold == params['fold'])
-    td = trainDataset(df.loc[tr_idx], PATH_PNG_224, transform= transforms_train, transform2 = transforms_train2)
-    vd = trainDataset(df.loc[vl_idx], PATH_PNG_224, transform= transform_val, transform2 = None)
+        df = pd.read_csv(os.path.join(PATH, 'train_folds_5split.csv'))
+    tr_idx = np.where(df.Gfold_v2 != params['fold'])
+    vl_idx = np.where(df.Gfold_v2 == params['fold'])
+    td = trainDataset(df.loc[tr_idx], PATH_JPG_512, transform= transforms_train, transform2 = None)
+    vd = trainDataset(df.loc[vl_idx], PATH_JPG_512, transform= transform_val, transform2 = None)
     dl =  DataLoader(td, batch_size=params['batch_size'], sampler=RandomSampler(td),  drop_last=True, num_workers=params['num_workers'])
     vl =  DataLoader(vd, batch_size=params['batch_size'], sampler=SequentialSampler(vd), num_workers=params['num_workers'])
 
+    #optim
 
-    opt = optim.Adam(model.parameters(), lr = params['lr'])
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(opt, params['epoch'])
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-                               opt, mode='min', factor=0.1,
-                               patience = 2, verbose=True
-                               )
+    if pars.optimizer == 'adam':        
+        opt = optim.Adam(model.parameters(),
+                               weight_decay=0.0001,
+                               lr = params['lr'])
+    elif pars.optimizer == 'rmsprop':        
+        opt = optim.RMSprop(model.parameters(),
+                                  lr= params['lr'],
+                                  weight_decay=0.0008) 
+    else:
+        opt = optim.SGD(model.parameters(),
+                              weight_decay=0.0001,
+                              lr = params['lr'],
+                              momentum=0.9,
+                              nesterov=False)
+
+    #shl
+    if pars.scheduler == 'slr':
+        scheduler = optim.lr_scheduler.StepLR(opt, 15, gamma=0.5) 
+    else:
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+                                          opt, mode='max', factor=0.5,
+                                          patience = 2, verbose=True
+                                          )
+    
+    print(f'Optimizer: {pars.optimizer}')
+    print(f'Scheduler: {pars.scheduler}')
+                        
     #'BCEWithLogitsLoss', 'BCELoss'
     loss_func =  params['loss_func']
     scaler = amp.GradScaler()  
@@ -210,7 +248,8 @@ if __name__ == "__main__":
     init = f"{params['model']}_bz{params['batch_size']}_lr{params['lr']}_shl{type(scheduler).__name__}_op{type(opt).__name__}_lf{params['loss_func']}"
     es = EarlyStopping(5, 'max')
     all_tp = []  
-    for e in range(params['epoch']):        
+    for e in range(params['epoch']):
+        scheduler.step(e)        
         print('Epoch ....... ', e)   
         model.train()
         if loss_func == 'BCELoss': scaler = None
@@ -236,10 +275,10 @@ if __name__ == "__main__":
             with open(os.path.join(PATH_LOG, f'log_{kernel}.txt'), 'a') as app:
                 app.write(lg + '\n')
         
-        if roc > roc_baseline:
+        if F1 > roc_baseline:
             print('Best ({:.6f} --> {:.6f}).  Saving model ...'.format(roc_baseline, roc))            
             torch.save(model.state_dict(), os.path.join(PATH_MODEL, f"{init}_f{params['fold']}_epoch{e}_score{roc.round(3)}_best_fold.pth"))
-            roc_baseline = roc
+            roc_baseline = F1
         print('------------')
         print(f'Recall {recall}, precision {precision}, F1 {F1}')
         print(f'TruePositive : {tp}, FalseNegative : {fn}, ratio : {tp/fn}, mean all epoch TP: {np.mean(all_tp)}')
@@ -247,10 +286,11 @@ if __name__ == "__main__":
         
         print(cm_out)
         print('\n')
-        torch.cuda.empty_cache()   
-        scheduler.step(roc)
-        #scheduler.step(e -1)
-        es(roc, model, PATH_MODEL)
+        torch.cuda.empty_cache()
+
+        #scheduler.step(np.mean(loss_val))
+
+        es(F1, model, PATH_MODEL)
         if es.early_stop:
             print('Erlystopp')
             break
