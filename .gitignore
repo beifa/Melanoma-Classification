@@ -139,7 +139,7 @@ cython_debug/
 
 /input
 /test
-/notebook
+#/notebook
 /submit
 ###
 *.pkl
